@@ -4,10 +4,15 @@ namespace :telegram do
       'Use LOG_TO_STDOUT to enable/disable broadcasting.'
     task :poller do
       ENV['BOT_POLLER_MODE'] = 'true'
-      Rake::Task['environment'].invoke
       if ENV.fetch('LOG_TO_STDOUT') { Rails.env.development? }.present?
         console = ActiveSupport::Logger.new(STDERR)
-        Rails.logger.extend ActiveSupport::Logger.broadcast console
+        if Gem::Version.new(Rails.version) >= Gem::Version.new('7.1')
+          Rails.logger = ActiveSupport::BroadcastLogger.new(console)
+          Rake::Task['environment'].invoke
+        else
+          Rake::Task['environment'].invoke
+          Rails.logger.extend ActiveSupport::Logger.broadcast console
+        end
       end
       Telegram::Bot::UpdatesPoller.start(ENV['BOT'].try!(:to_sym) || :default)
     end
